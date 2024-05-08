@@ -1,18 +1,18 @@
 package main
 
 import (
-	"encoding/binary"
+	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"os"
 )
 
 type Event struct {
 	Key   string
 	Value string
 }
+
+var buf bytes.Buffer
 
 func Handler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodOptions {
@@ -30,8 +30,9 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := saveEventToLogFile(event, "myLog.bin"); err != nil {
+		if err := saveEventToBuffer(event); err != nil {
 			log.Print(err)
+			http.Error(w, "Error saving event to buffer", http.StatusInternalServerError)
 			return
 		}
 
@@ -39,44 +40,6 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-}
-
-// parse event from request body of the producer
-func parseRequest(body io.Reader, event *Event) error {
-	_, err := fmt.Fscanf(body, "Key=%s\nValue=%s", &event.Key, &event.Value)
-	log.Print(event)
-	return err
-}
-
-func saveEventToLogFile(event Event, filename string) error {
-	// convert key value pair into binary
-	keyByte := []byte(event.Key)
-	valueByte := []byte(event.Value)
-	// length of key and value bytes
-	keyByteLen := uint16(len(keyByte))
-	valueByteLen := uint16(len(valueByte))
-
-	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0222)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// write key value and len of both to the file
-	if err := binary.Write(file, binary.LittleEndian, keyByteLen); err != nil {
-		return err
-	}
-	if _, err := file.Write(keyByte); err != nil {
-		return err
-	}
-	if err := binary.Write(file, binary.LittleEndian, valueByteLen); err != nil {
-		return err
-	}
-	if _, err := file.Write(valueByte); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func main() {
