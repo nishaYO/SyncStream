@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
@@ -41,21 +40,10 @@ func saveEventToBuffer(event Event) error {
 
 	cap := 4 + len(keyByte) + len(valueByte)
 	data := make([]byte, 0, cap)
-	// Append key length bytes to the data slice
-	keyLenBytes := make([]byte, 2)
-	binary.LittleEndian.PutUint16(keyLenBytes, keyByteLen)
-	data = append(data, keyLenBytes...)
-
-	// Append key data to the data slice
-	data = append(data, keyByte...)
-
-	// Append value length bytes to the data slice
-	valueLenBytes := make([]byte, 2)
-	binary.LittleEndian.PutUint16(valueLenBytes, valueByteLen)
-	data = append(data, valueLenBytes...)
-
-	// Append value data to the data slice
-	data = append(data, valueByte...)
+	data = append(data, byte(keyByteLen), byte(keyByteLen>>8)) // convert keyByteLen to little endian from big endian using bit manipulation
+	data = append(data, keyByte...)                                
+	data = append(data, byte(valueByteLen), byte(valueByteLen>>8)) 
+	data = append(data, valueByte...)                              
 
 	// write key value and len of both to the buffer
 	if _, err := buf.Write(data); err != nil {
